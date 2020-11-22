@@ -27,6 +27,7 @@ for i_episode in range(100):
 RL.plot_cost()
 env = env.unwrapped
 
+
 ## 游戏预览
 ## 参考文档：https://github.com/openai/gym/blob/master/gym/envs/classic_control/mountain_car.py
 # for i_episode in range(3):
