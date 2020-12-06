@@ -2,62 +2,107 @@ import gym
 import os
 import matplotlib.pyplot as plt
 import numpy as np
-
 from RL_brain import DQN
-
-
-def plot_reward_and_cost(i_episode, size):
-    if i_episode == 0:
-        plt.figure()
-        plt.ion()
-    elif i_episode >= size - 1:
-        plt.ioff()
-        plt.show()
-        return
-    plt.clf()
-    plt.subplot(2, 1, 1)
-    plt.plot(np.arange(len(step_reward_list)), step_reward_list)
-    plt.title('each_step_reward')
-    plt.subplot(2, 1, 2)
-    plt.plot(np.arange(len(RL.each_step_cost_his)), RL.each_step_cost_his)  # 1个episode训练step次，每次训练遍历样本epoch次
-    plt.title('each_step_cost')
-    plt.pause(0.00000001)
-
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
-env = gym.make('MountainCar-v0')
-RL = DQN(3, 2)
 
-## 玩100回合，边玩边产生样本，边训练
-step_reward_list = []  # 记录每个step的reward
-episode_cnt = 300
-total_steps = 0  # 记录步数
+def plot_reward_and_cost(i_episode, size, history):
+    if i_episode == 0:
+        plt.figure()
+        plt.ion()
+    # elif i_episode >= size - 1:
+    #     plt.ioff()
+    #     # plt.show()
+    #     return
+    plt.clf()
+    plt.subplot(2, 1, 1)
+    plt.plot(np.arange(len(history['Episode_reward'])), history['Episode_reward'])
+    plt.title('each_episode_reward')
+    plt.subplot(2, 1, 2)
+    plt.plot(np.arange(len(history['Loss'])), history['Loss'])  # 1个episode训练step次，每次训练遍历样本epoch次
+    plt.title('each_episode_cost')
+    plt.pause(0.00000001)
 
-for i_episode in range(episode_cnt):
-    print('episode:%d' % i_episode)
+
+def train(episodes):
+    total_steps = 0  # 记录步数
+    history = {'episode': [], 'Episode_reward': [], 'Loss': []}
+
+    for i_episode in range(episodes):
+        observation = env.reset()
+        reward_sum = 0
+        loss = np.infty
+        while True:
+            env.render()
+            action = rl.choose_action(observation)
+            observation_, reward, done, info = env.step(action)
+
+            # 车开得越高 reward 越大
+            position, velocity = observation_
+            reward = abs(position - (-0.5))
+
+            reward_sum += reward
+            rl.store_transition(observation, action, reward, observation_, done)
+
+            if total_steps > 1000:
+                loss = rl.learn()
+
+            if done:
+                break
+
+            observation = observation_
+            total_steps += 1
+
+        if i_episode % 5 == 0:
+            history['episode'].append(i_episode)
+            history['Episode_reward'].append(reward_sum)
+            history['Loss'].append(loss)
+            print(
+                'Episode: {}/{} | Episode reward: {} | loss: {:.6f} | e:{:.2f}'.format(i_episode, episodes, reward_sum,
+                                                                                       loss, rl.epsilon))
+            plot_reward_and_cost(i_episode, episodes, history)
+    return history
+    # ENV = ENV.unwrapped
+    # RL.plot_cost()
+
+
+def play():
+    """使用训练好的模型测试游戏.
+    """
     observation = env.reset()
-    while True:
+    i_episode = 0
+    total_episodes = 10
+    turns_count = 0
+    reward_sum = 0
+
+    while i_episode < total_episodes:
         env.render()
-        action = RL.choose_action(observation)
-        observation_, reward, done, info = env.step(action)
+        action = rl.choose_action(observation, False)
+        observation, reward, done, info = env.step(action)
 
-        position, velocity = observation_
-        # 车开得越高 reward 越大
-        reward = abs(position - (-0.5))
-
-        RL.store_transition(observation, action, reward, observation_)
-
-        if total_steps > 1000:
-            step_reward_list.append(reward)
-            RL.learn()
+        turns_count += 1
+        reward_sum += reward
 
         if done:
-            break
+            print("Reward for this episode was: {}, turns was: {}".format(reward_sum, turns_count))
+            i_episode += 1
+            reward_sum = 0
+            turns_count = 0
+            observation = env.reset()
 
-        observation = observation_
-        total_steps += 1
-    plot_reward_and_cost(i_episode, episode_cnt)
+    env.close()
 
-env = env.unwrapped
-# RL.plot_cost()
+
+if __name__ == '__main__':
+    # 玩100回合，边玩边产生样本，边训练
+    env = gym.make('MountainCar-v0')
+    state_size = env.observation_space.shape[0]
+    action_size = env.action_space.n
+    rl = DQN(action_size, state_size)
+
+    EPISODES = 300
+    history = train(EPISODES)
+    play()
+    plt.ioff()
+    plt.show()
