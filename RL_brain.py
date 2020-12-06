@@ -25,7 +25,7 @@ class DQN:
                                   metrics=['accuracy'])
 
     def __init__(self, n_actions, n_features, learning_rate=0.01, reward_decay=0.9, epsilon=1.0, epsilon_min=0.01,
-                 epsilon_decay=0.995, replace_target_iter=300, memory_size=500, batch_size=32):
+                 epsilon_decay=0.995, replace_target_iter=300, memory_size=2000, batch_size=64):
         self.n_actions = n_actions
         self.n_features = n_features
         self.lr = learning_rate
@@ -131,3 +131,28 @@ class DQN:
     #     plt.ylabel('Cost')
     #     plt.xlabel('training steps')  # step代表每个epoch（self.model_eval.fit的入参）
     #     plt.show()
+
+#
+# class PolicyGradient:
+#     def __init__(self, n_actions, n_features, learning_rate=0.01, reward_decay=0.9):
+#         self.n_actions = n_actions
+#         self.n_features = n_features
+#         self.lr = learning_rate  # 学习率
+#         self.gamma = reward_decay  # reward 递减率
+#         self._build_net()
+#
+#     def _build_net(self):
+#         inputs = Input(shape=(self.n_features,))
+#         x = Dense(64, activation='relu')(inputs)
+#         x = Dense(32, activation='relu')(x)
+#         output = Dense(self.n_actions, activation='softmax')(x)
+#         self.model = Model(inputs=inputs, outputs=output)
+#         self.model.compile(optimizer=Adam(learning_rate=self.lr), loss=, metrics=['accuracy'])
+#
+#     def choose_action(self, observation):
+#
+#     def store_transition(self, s, a, r):
+#
+#     def learn(self, s, a, r, s_):
+#
+#     def _discount_and_norm_rewards(self):

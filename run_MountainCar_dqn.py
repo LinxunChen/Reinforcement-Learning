@@ -54,7 +54,7 @@ def train(episodes):
             observation = observation_
             total_steps += 1
 
-        if i_episode % 5 == 0:
+        if i_episode % 3 == 0:
             history['episode'].append(i_episode)
             history['Episode_reward'].append(reward_sum)
             history['Loss'].append(loss)
@@ -95,14 +95,20 @@ def play():
 
 
 if __name__ == '__main__':
-    # 玩100回合，边玩边产生样本，边训练
+    # 玩500回合，边玩边产生样本，边训练
     env = gym.make('MountainCar-v0')
+    env.seed(1)
+    print(env.action_space)  # 显示可用 action
+    print(env.observation_space)  # 显示可用 state 的 observation
+    print(env.observation_space.high)  # 显示 observation 最高值
+    print(env.observation_space.low)  # 显示 observation 最低值
+
     state_size = env.observation_space.shape[0]
     action_size = env.action_space.n
     rl = DQN(action_size, state_size)
 
-    EPISODES = 300
-    history = train(EPISODES)
+    EPISODES = 500
+    his = train(EPISODES)
     play()
     plt.ioff()
     plt.show()
