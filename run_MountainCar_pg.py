@@ -2,7 +2,7 @@ import gym
 import os
 import matplotlib.pyplot as plt
 import numpy as np
-from RL_brain import DQN
+from RL_brain import DQN, PolicyGradient
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
@@ -26,13 +26,12 @@ def plot_reward_and_cost(i_episode, size, history):
 
 
 def train(episodes):
-    # total_steps = 0  # 记录步数
+    batch = 1  # 一个batch包含几次episode，每个batch更新一次梯度
     history = {'episode': [], 'Episode_reward': [], 'Loss': []}
 
     for i_episode in range(episodes):
         observation = env.reset()
         reward_sum = 0
-        loss = np.infty
         while True:
             env.render()
             action = rl.choose_action(observation)
@@ -43,16 +42,16 @@ def train(episodes):
             reward = abs(position - (-0.5))
 
             reward_sum += reward
-            rl.store_transition(observation, action, reward, observation_, done)
+            rl.store_transition(observation, action, reward)
 
             if done:
-                loss = rl.learn()
                 break
 
             observation = observation_
-            # total_steps += 1
 
-        if i_episode % 5 == 0:
+        if i_episode != 0 and i_episode % batch == 0:
+            loss = rl.learn()
+
             history['episode'].append(i_episode)
             history['Episode_reward'].append(reward_sum)
             history['Loss'].append(loss)
@@ -61,8 +60,6 @@ def train(episodes):
                                                                                        loss, rl.epsilon))
             plot_reward_and_cost(i_episode, episodes, history)
     return history
-    # ENV = ENV.unwrapped
-    # RL.plot_cost()
 
 
 def play():
@@ -106,14 +103,14 @@ if __name__ == '__main__':
     state_size = env.observation_space.shape[0]
     action_size = env.action_space.n
     rl = PolicyGradient(
-        n_actions=env.action_space.n,
-        n_features=env.observation_space.shape[0],
+        n_actions=action_size,
+        n_features=state_size,
         learning_rate=0.01,
         reward_decay=0.995,
     )
 
     EPISODES = 500
     his = train(EPISODES)
-    play()
+    # play()
     plt.ioff()
     plt.show()

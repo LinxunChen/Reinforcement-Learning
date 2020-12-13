@@ -3,8 +3,10 @@ import numpy as np
 
 from tensorflow.python.keras import Input, Model
 from tensorflow.python.keras.layers import Dense
+from tensorflow.python.keras.losses import SparseCategoricalCrossentropy
 from tensorflow.python.keras.optimizer_v2.adam import Adam
 from collections import deque
+import keras.backend as K
 
 
 class DQN:
@@ -132,27 +134,45 @@ class DQN:
     #     plt.xlabel('training steps')  # step代表每个epoch（self.model_eval.fit的入参）
     #     plt.show()
 
+
 #
-# class PolicyGradient:
-#     def __init__(self, n_actions, n_features, learning_rate=0.01, reward_decay=0.9):
-#         self.n_actions = n_actions
-#         self.n_features = n_features
-#         self.lr = learning_rate  # 学习率
-#         self.gamma = reward_decay  # reward 递减率
-#         self._build_net()
-#
-#     def _build_net(self):
-#         inputs = Input(shape=(self.n_features,))
-#         x = Dense(64, activation='relu')(inputs)
-#         x = Dense(32, activation='relu')(x)
-#         output = Dense(self.n_actions, activation='softmax')(x)
-#         self.model = Model(inputs=inputs, outputs=output)
-#         self.model.compile(optimizer=Adam(learning_rate=self.lr), loss=, metrics=['accuracy'])
-#
-#     def choose_action(self, observation):
-#
-#     def store_transition(self, s, a, r):
-#
-#     def learn(self, s, a, r, s_):
-#
-#     def _discount_and_norm_rewards(self):
+class PolicyGradient:
+    def __init__(self, n_actions, n_features, learning_rate=0.01, reward_decay=0.9):
+        self.n_actions = n_actions
+        self.n_features = n_features
+        self.lr = learning_rate  # 学习率
+        self.gamma = reward_decay  # reward 递减率
+        self.states, self.actions, self.rewards, self.discount_rewards = [], [], [], []
+        self._build_net()
+
+    def _build_net(self):
+        inputs = Input(shape=(self.n_features,))
+        x = Dense(64, activation='relu')(inputs)
+        x = Dense(32, activation='relu')(x)
+        output = Dense(self.n_actions, activation='softmax')(x)
+        self.model = Model(inputs=inputs, outputs=output)
+        self.model.compile(optimizer=Adam(learning_rate=self.lr), loss=SparseCategoricalCrossentropy, metrics=['accuracy'])
+
+    def choose_action(self, observation, is_train_mode=True):
+        observation = np.array(observation)
+        observation = observation[np.newaxis, :]
+        action_probs = self.model.predict(observation)
+        if is_train_mode:
+            action = np.random.choice(range(action_probs.shape[1]), p=np.squeeze(action_probs))  # 加入了随机性
+        else:
+            action = np.squeeze(np.argmax(action_probs, axis=1))
+        return action
+
+    def store_transition(self, s, a, r):
+        self.states.append(s)
+        self.actions.append(a)
+        self.rewards.append(r)
+
+    def learn(self):
+        history = self.model.fit(x=np.array(self.states), y=np.array(self.actions), sample_weight= , verbose=0, batch_size=32,
+                                 epochs=10)
+        loss_mean = np.mean(history.history['loss'])
+        self.states, self.actions, self.rewards, self.discount_rewards = [], [], [], []
+        return loss_mean
+
+    def _discount_and_norm_rewards(self):
