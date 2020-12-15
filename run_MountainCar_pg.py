@@ -2,7 +2,7 @@ import gym
 import os
 import matplotlib.pyplot as plt
 import numpy as np
-from RL_brain import DQN, PolicyGradient
+from RL_brain import PolicyGradient
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
@@ -45,8 +45,8 @@ def train(episodes):
             rl.store_transition(observation, action, reward)
 
             if done:
+                rl.discount_rewards.extend(rl.discount_and_norm_ep_rewards())
                 break
-
             observation = observation_
 
         if i_episode != 0 and i_episode % batch == 0:
@@ -56,8 +56,7 @@ def train(episodes):
             history['Episode_reward'].append(reward_sum)
             history['Loss'].append(loss)
             print(
-                'Episode: {}/{} | Episode reward: {} | loss: {:.6f} | e:{:.2f}'.format(i_episode, episodes, reward_sum,
-                                                                                       loss, rl.epsilon))
+                'Episode: {}/{} | Episode reward: {} | loss: {:.6f}'.format(i_episode, episodes, reward_sum, loss))
             plot_reward_and_cost(i_episode, episodes, history)
     return history
 
