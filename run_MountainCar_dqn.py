@@ -2,7 +2,7 @@ import gym
 import os
 import matplotlib.pyplot as plt
 import numpy as np
-from RL_brain import DQN
+from RL_brain_dqn import DQN
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 

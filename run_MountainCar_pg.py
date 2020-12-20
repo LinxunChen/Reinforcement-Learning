@@ -2,7 +2,8 @@ import gym
 import os
 import matplotlib.pyplot as plt
 import numpy as np
-from RL_brain import PolicyGradient
+from RL_brain_pg import PolicyGradient
+import tensorflow as tf
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
@@ -92,6 +93,9 @@ if __name__ == '__main__':
     # 玩500回合，边玩边产生样本，边训练
     env = gym.make('MountainCar-v0')
     env.seed(1)
+    np.random.seed(1)
+    tf.set_random_seed(1)
+
     print(env.action_space)  # 显示可用 action
     print(env.observation_space)  # 显示可用 state 的 observation
     print(env.observation_space.high)  # 显示 observation 最高值
@@ -104,11 +108,11 @@ if __name__ == '__main__':
     rl = PolicyGradient(
         n_actions=action_size,
         n_features=state_size,
-        learning_rate=0.01,
+        learning_rate=0.015,
         reward_decay=0.995,
     )
 
-    EPISODES = 500
+    EPISODES = 2000
     his = train(EPISODES)
     # play()
     plt.ioff()
