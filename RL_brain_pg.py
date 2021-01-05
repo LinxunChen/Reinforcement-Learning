@@ -5,6 +5,8 @@ import tensorflow as tf
 from tensorflow.python.keras import Input, Model
 from tensorflow.python.keras.layers import Dense
 from tensorflow.python.keras.optimizer_v2.adam import Adam
+from tensorflow.python.keras.regularizers import l2
+
 
 class PolicyGradient:
     def __init__(self, n_actions, n_features, learning_rate=0.01, reward_decay=0.9):
@@ -13,13 +15,14 @@ class PolicyGradient:
         self.lr = learning_rate  # 学习率
         self.gamma = reward_decay  # reward 递减率
         self.states, self.actions, self.rewards, self.ep_rewards, self.discount_rewards = [], [], [], [], []
+        self.l2 = 0.01
         self._build_net()
 
     def _build_net(self):
         inputs = Input(shape=(self.n_features,))
-        x = Dense(16, activation='relu')(inputs)
-        x = Dense(16, activation='relu')(x)
-        output = Dense(self.n_actions, activation='softmax')(x)
+        x = Dense(16, activation='relu', kernel_regularizer=l2(self.l2))(inputs)
+        x = Dense(16, activation='relu', kernel_regularizer=l2(self.l2))(x)
+        output = Dense(self.n_actions, activation='softmax', kernel_regularizer=l2(self.l2))(x)
         self.model = Model(inputs=inputs, outputs=output)
         self.model.compile(optimizer=Adam(learning_rate=self.lr), loss=tf.keras.losses.SparseCategoricalCrossentropy(),
                            metrics=['accuracy'])

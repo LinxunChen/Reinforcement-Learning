@@ -1,9 +1,12 @@
+import random
+
 import gym
 import os
 import matplotlib.pyplot as plt
 import numpy as np
 from RL_brain_pg import PolicyGradient
 import tensorflow as tf
+from tensorflow.python.keras import backend as K
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
@@ -88,13 +91,23 @@ def play():
 
     env.close()
 
+def model_reproducible():
+    #模型可复现
+    os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+    os.environ['PYTHONHASHSEED'] = '0'
+    np.random.seed(1)
+    random.seed(1)
+    session_conf = tf.ConfigProto(intra_op_parallelism_threads=1,
+                                  inter_op_parallelism_threads=1)
+    tf.set_random_seed(1)
+    sess = tf.Session(graph=tf.get_default_graph(), config=session_conf)
+    K.set_session(sess)
 
 if __name__ == '__main__':
     # 玩500回合，边玩边产生样本，边训练
     env = gym.make('MountainCar-v0')
     env.seed(1)
-    np.random.seed(1)
-    tf.set_random_seed(1)
+    model_reproducible()
 
     print(env.action_space)  # 显示可用 action
     print(env.observation_space)  # 显示可用 state 的 observation

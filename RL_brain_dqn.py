@@ -6,20 +6,22 @@ from tensorflow.python.keras.layers import Dense
 from tensorflow.python.keras.optimizer_v2.adam import Adam
 from collections import deque
 
+from tensorflow.python.keras.regularizers import l2
+
 
 class DQN:
     def _build_net(self):
         eval_inputs = Input(shape=(self.n_features,))
-        x = Dense(64, activation='relu')(eval_inputs)
-        x = Dense(32, activation='relu')(x)
-        eval_output = Dense(self.n_actions)(x)
+        x = Dense(64, activation='relu', kernel_regularizer=l2(self.l2))(eval_inputs)
+        x = Dense(32, activation='relu', kernel_regularizer=l2(self.l2))(x)
+        eval_output = Dense(self.n_actions, kernel_regularizer=l2(self.l2))(x)
         self.model_eval = Model(inputs=eval_inputs, outputs=eval_output)
         self.model_eval.compile(optimizer=Adam(learning_rate=self.lr), loss='mean_squared_error', metrics=['accuracy'])
 
         target_inputs = Input(shape=(self.n_features,))
-        x = Dense(64, activation='relu')(target_inputs)
-        x = Dense(32, activation='relu')(x)
-        target_output = Dense(self.n_actions)(x)
+        x = Dense(64, activation='relu', kernel_regularizer=l2(self.l2))(target_inputs)
+        x = Dense(32, activation='relu', kernel_regularizer=l2(self.l2))(x)
+        target_output = Dense(self.n_actions, kernel_regularizer=l2(self.l2))(x)
         self.model_target = Model(inputs=target_inputs, outputs=target_output)
         self.model_target.compile(optimizer=Adam(learning_rate=self.lr), loss='mean_squared_error',
                                   metrics=['accuracy'])
@@ -37,6 +39,7 @@ class DQN:
         # self.memory_size = memory_size
         self.batch_size = batch_size
         self.learn_step_counter = 0
+        self.l2 = 0.01
         # self.memory = np.zeros((self.memory_size, n_features * 2 + 2))
         self._build_net()
         # 经验池
