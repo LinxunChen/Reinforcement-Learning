@@ -71,7 +71,12 @@ class PolicyGradient:
 
         # normalize episode rewards
         discount_rewards -= np.mean(discount_rewards)
-        discount_rewards /= np.std(discount_rewards)
+        if np.std(discount_rewards) != 0:
+            discount_rewards /= np.std(discount_rewards)
+
+        if np.all(discount_rewards) == 0:
+            print('discount_rewards are all 0!')
+            discount_rewards += 0.01  # 需要观察正常discount_rewards的量级，取一个很小的数
 
         self.ep_rewards = []
 

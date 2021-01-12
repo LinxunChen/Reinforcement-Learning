@@ -12,7 +12,7 @@ os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
 
 def plot_reward_and_cost(i_episode, size, history):
-    if i_episode == 0:
+    if i_episode <= 1:
         plt.figure()
         plt.ion()
     # elif i_episode >= size - 1:
