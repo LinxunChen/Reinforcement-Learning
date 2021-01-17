@@ -91,7 +91,6 @@ class PPO:
         # print('learn: sample length-',len(self.actions))
         # print('learn: states-',self.states)
         # print('learn: actions-',self.actions)
-        # print('learn: discount_rewards-',self.discount_rewards)
         self.cal_v_by_traceback()
         b_s, b_a, b_vt = np.array(self.states), np.array(self.actions), np.array(self.v_by_trace)
         b_v = self.get_v(b_s)
@@ -103,7 +102,7 @@ class PPO:
         history = self.actor.fit(x=[b_s, b_adv, b_old_prediction], y=b_a_onehot, verbose=0)
         actor_loss_mean = np.mean(history.history['loss'])
 
-        self.critic.fit(x=b_s, y=b_vt, epochs=2, verbose=0) #？todo
+        self.critic.fit(x=b_s, y=b_vt, epochs=2, verbose=0) #？todo 参考：https://github.com/liziniu/RL-PPO-Keras/blob/9fcfa63843c7d3a4d0b67c31de3405ccf5ce4212/ppo.py#L65
 
         self.states, self.actions, self.rewards, self.states_, self.dones, self.v_by_trace = [], [], [], [], [], []
         self.update_target_network()
