@@ -99,7 +99,7 @@ class PPO:
         b_a_onehot = np.zeros(b_a.shape[0], self.n_actions)
         b_a_onehot[:, b_a.flatten()] = 1
 
-        history = self.actor.fit(x=[b_s, b_adv, b_old_prediction], y=b_a_onehot, verbose=0)
+        history = self.actor.fit(x=[b_s, b_adv, b_old_prediction], y=b_a_onehot, epochs=2, verbose=0)
         actor_loss_mean = np.mean(history.history['loss'])
 
         self.critic.fit(x=b_s, y=b_vt, epochs=2, verbose=0) # critic目标就是让td-error尽可能小
