@@ -9,7 +9,7 @@ from tensorflow.python.keras.regularizers import l2
 import keras.backend as K
 from tensorflow.python.keras.saving import model_from_json
 
-
+# 参考：https://github.com/liziniu/RL-PPO-Keras/blob/9fcfa63843c7d3a4d0b67c31de3405ccf5ce4212/ppo.py#L65
 class PPO:
     def __init__(self, n_actions, n_features, actor_lr=0.01, critic_lr=0.01, reward_decay=0.9, l2=0.01,
                  loss_clipping=0.1, target_update_alpha=0.9):
@@ -102,7 +102,7 @@ class PPO:
         history = self.actor.fit(x=[b_s, b_adv, b_old_prediction], y=b_a_onehot, verbose=0)
         actor_loss_mean = np.mean(history.history['loss'])
 
-        self.critic.fit(x=b_s, y=b_vt, epochs=2, verbose=0) #？todo 参考：https://github.com/liziniu/RL-PPO-Keras/blob/9fcfa63843c7d3a4d0b67c31de3405ccf5ce4212/ppo.py#L65
+        self.critic.fit(x=b_s, y=b_vt, epochs=2, verbose=0) # critic目标就是让td-error尽可能小
 
         self.states, self.actions, self.rewards, self.states_, self.dones, self.v_by_trace = [], [], [], [], [], []
         self.update_target_network()
