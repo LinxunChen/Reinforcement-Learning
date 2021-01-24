@@ -111,6 +111,7 @@ def model_reproducible():
 
 if __name__ == '__main__':
     # 玩500回合，边玩边产生样本，边训练
+    tf.disable_eager_execution()
     env = gym.make('MountainCar-v0')
     env.seed(1)
     model_reproducible()

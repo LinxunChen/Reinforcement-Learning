@@ -2,32 +2,36 @@ import random
 import numpy as np
 
 from tensorflow.python.keras import Input, Model
-from tensorflow.python.keras.layers import Dense
+from tensorflow.python.keras.layers import Dense, Lambda, Subtract, Add
 from tensorflow.python.keras.optimizer_v2.adam import Adam
 from collections import deque
-
+import keras.backend as K
 from tensorflow.python.keras.regularizers import l2
 
 
 class DQN:
     def _build_net(self):
-        eval_inputs = Input(shape=(self.n_features,))
-        x = Dense(64, activation='relu', kernel_regularizer=l2(self.l2))(eval_inputs)
+        inputs = Input(shape=(self.n_features,))
+        x = Dense(64, activation='relu', kernel_regularizer=l2(self.l2))(inputs)
         x = Dense(32, activation='relu', kernel_regularizer=l2(self.l2))(x)
-        eval_output = Dense(self.n_actions, kernel_regularizer=l2(self.l2))(x)
-        self.model_eval = Model(inputs=eval_inputs, outputs=eval_output)
-        self.model_eval.compile(optimizer=Adam(learning_rate=self.lr), loss='mean_squared_error', metrics=['accuracy'])
+        if not self.dueling:
+            output = Dense(self.n_actions, kernel_regularizer=l2(self.l2))(x)
+        else:
+            v = Dense(1, kernel_regularizer=l2(self.l2))(x)
+            a = Dense(self.n_actions, kernel_regularizer=l2(self.l2))(x)
+            mean = Lambda(lambda x: K.mean(x, axis=1, keepdims=True))(a)
+            # advantage = Lambda(lambda x, y: x - y)([a, mean])
+            # output = Lambda(lambda x, y: x + y)([v, advantage])
+            advantage = Subtract()([a, mean])
+            output = Add()([v, advantage])
 
-        target_inputs = Input(shape=(self.n_features,))
-        x = Dense(64, activation='relu', kernel_regularizer=l2(self.l2))(target_inputs)
-        x = Dense(32, activation='relu', kernel_regularizer=l2(self.l2))(x)
-        target_output = Dense(self.n_actions, kernel_regularizer=l2(self.l2))(x)
-        self.model_target = Model(inputs=target_inputs, outputs=target_output)
-        self.model_target.compile(optimizer=Adam(learning_rate=self.lr), loss='mean_squared_error',
-                                  metrics=['accuracy'])
+        model = Model(inputs=inputs, outputs=output)
+        model.compile(optimizer=Adam(learning_rate=self.lr), loss='mean_squared_error', metrics=['accuracy'])
+        return model
 
     def __init__(self, n_actions, n_features, learning_rate=0.01, reward_decay=0.9, epsilon=1.0, epsilon_min=0.01,
-                 epsilon_decay=0.995, replace_target_iter=300, memory_size=2000, batch_size=64, double_q=True):
+                 epsilon_decay=0.998, replace_target_iter=300, memory_size=2000, batch_size=64, l2=0.001, double_q=True,
+                 dueling=True):
         self.n_actions = n_actions
         self.n_features = n_features
         self.lr = learning_rate
@@ -39,10 +43,12 @@ class DQN:
         # self.memory_size = memory_size
         self.batch_size = batch_size
         self.learn_step_counter = 0
-        self.l2 = 0.01
+        self.l2 = l2
         self.double_q = double_q
+        self.dueling = dueling
         # self.memory = np.zeros((self.memory_size, n_features * 2 + 2))
-        self._build_net()
+        self.model_eval = self._build_net()
+        self.model_target = self._build_net()
         # 经验池
         self.memory_buffer = deque(maxlen=memory_size)
 
