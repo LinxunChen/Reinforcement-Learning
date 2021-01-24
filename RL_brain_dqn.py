@@ -27,7 +27,7 @@ class DQN:
                                   metrics=['accuracy'])
 
     def __init__(self, n_actions, n_features, learning_rate=0.01, reward_decay=0.9, epsilon=1.0, epsilon_min=0.01,
-                 epsilon_decay=0.995, replace_target_iter=300, memory_size=2000, batch_size=64):
+                 epsilon_decay=0.995, replace_target_iter=300, memory_size=2000, batch_size=64, double_q=True):
         self.n_actions = n_actions
         self.n_features = n_features
         self.lr = learning_rate
@@ -40,6 +40,7 @@ class DQN:
         self.batch_size = batch_size
         self.learn_step_counter = 0
         self.l2 = 0.01
+        self.double_q = double_q
         # self.memory = np.zeros((self.memory_size, n_features * 2 + 2))
         self._build_net()
         # 经验池
@@ -82,13 +83,23 @@ class DQN:
         next_states = np.array([d[3] for d in data])
 
         y = self.model_eval.predict(states)
-        q = self.model_target.predict(next_states)
+        if not self.double_q:
+            q = self.model_target.predict(next_states)
+            for i, (_, action, reward, _, done) in enumerate(data):
+                target = reward
+                if not done:
+                    target += self.gamma * np.max(q[i])
+                y[i][action] = target
+        else:
+            tmp = self.model_eval.predict(next_states)
+            act_next = np.argmax(tmp, axis=1)
+            q = self.model_target.predict(next_states)
+            for i, (_, action, reward, _, done) in enumerate(data):
+                target = reward
+                if not done:
+                    target += self.gamma * q[i, act_next[i]]
+                y[i][action] = target
 
-        for i, (_, action, reward, _, done) in enumerate(data):
-            target = reward
-            if not done:
-                target += self.gamma * np.max(q[i])
-            y[i][action] = target
         history = self.model_eval.fit(x=states, y=y, verbose=0, batch_size=32, epochs=10)
 
         # # 从memory里选取一部分进行样本
