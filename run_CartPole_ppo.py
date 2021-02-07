@@ -168,7 +168,7 @@ if __name__ == '__main__':
 
     EP_MAX = 2000
     EP_LEN = 200
-    BATCH = 32
+    BATCH = 64
     his = train()
     # play()
     plt.ioff()

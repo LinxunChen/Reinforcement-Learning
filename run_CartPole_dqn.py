@@ -168,7 +168,7 @@ if __name__ == '__main__':
 
     state_size = env.observation_space.shape[0]
     action_size = env.action_space.n
-    rl = DQN(action_size, state_size)
+    rl = DQN(action_size, state_size, double_q=True, dueling=True)
 
     EPISODES = 500
     his = train(EPISODES)

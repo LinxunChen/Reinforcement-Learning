@@ -20,7 +20,7 @@ class PolicyGradient:
 
     def _build_net(self):
         inputs = Input(shape=(self.n_features,))
-        x = Dense(16, activation='relu', kernel_regularizer=l2(self.l2))(inputs)
+        x = Dense(32, activation='relu', kernel_regularizer=l2(self.l2))(inputs)
         x = Dense(16, activation='relu', kernel_regularizer=l2(self.l2))(x)
         output = Dense(self.n_actions, activation='softmax', kernel_regularizer=l2(self.l2))(x)
         self.model = Model(inputs=inputs, outputs=output)

@@ -9,7 +9,7 @@ from tensorflow.python.keras.regularizers import l2
 import keras.backend as K
 
 class PPO:
-    def __init__(self, n_actions, n_features, actor_lr=0.01, critic_lr=0.01, reward_decay=0.9, l2=0.001,
+    def __init__(self, n_actions, n_features, actor_lr=0.001, critic_lr=0.01, reward_decay=0.9, l2=0.001,
                  loss_clipping=0.1, target_update_alpha=0.9):
         self.n_actions = n_actions
         self.n_features = n_features

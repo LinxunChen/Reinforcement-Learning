@@ -29,7 +29,7 @@ class DQN:
         model.compile(optimizer=Adam(learning_rate=self.lr), loss='mean_squared_error', metrics=['accuracy'])
         return model
 
-    def __init__(self, n_actions, n_features, learning_rate=0.01, reward_decay=0.9, epsilon=1.0, epsilon_min=0.01,
+    def __init__(self, n_actions, n_features, learning_rate=0.001, reward_decay=0.9, epsilon=1.0, epsilon_min=0.01,
                  epsilon_decay=0.998, replace_target_iter=300, memory_size=2000, batch_size=64, l2=0.001, double_q=True,
                  dueling=True):
         self.n_actions = n_actions
