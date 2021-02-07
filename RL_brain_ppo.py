@@ -7,11 +7,9 @@ from tensorflow.python.keras.layers import Dense
 from tensorflow.python.keras.optimizer_v2.adam import Adam
 from tensorflow.python.keras.regularizers import l2
 import keras.backend as K
-from tensorflow.python.keras.saving import model_from_json
 
-# 参考：https://github.com/liziniu/RL-PPO-Keras/blob/9fcfa63843c7d3a4d0b67c31de3405ccf5ce4212/ppo.py#L65
 class PPO:
-    def __init__(self, n_actions, n_features, actor_lr=0.01, critic_lr=0.01, reward_decay=0.9, l2=0.01,
+    def __init__(self, n_actions, n_features, actor_lr=0.01, critic_lr=0.01, reward_decay=0.9, l2=0.001,
                  loss_clipping=0.1, target_update_alpha=0.9):
         self.n_actions = n_actions
         self.n_features = n_features
@@ -21,41 +19,34 @@ class PPO:
         self.states, self.actions, self.rewards, self.states_, self.dones, self.v_by_trace = [], [], [], [], [], []  # V(s)=r+g*V(s_)
         self.l2 = l2
         self.loss_clipping = loss_clipping
-        self.target_update_alpha = target_update_alpha #模型参数平滑因子
+        self.target_update_alpha = target_update_alpha  # 模型参数平滑因子
         self._build_critic()
-        self._build_actor()
+        self.actor = self._build_actor()
+        self.actor_old = self._build_actor()
+        self.actor_old.set_weights(self.actor.get_weights())
         self.dummy_advantage = np.zeros((1, 1))
         self.dummy_old_prediction = np.zeros((1, self.n_actions))
 
     def _build_critic(self):
         inputs = Input(shape=(self.n_features,))
-        x = Dense(16, activation='relu', kernel_regularizer=l2(self.l2))(inputs)
+        x = Dense(32, activation='relu', kernel_regularizer=l2(self.l2))(inputs)
         x = Dense(16, activation='relu', kernel_regularizer=l2(self.l2))(x)
         output = Dense(1, kernel_regularizer=l2(self.l2))(x)
         self.critic = Model(inputs=inputs, outputs=output)
-        self.critic.compile(optimizer=Adam(learning_rate=self.critic_lr), loss='mean_squared_error',
+        self.critic.compile(optimizer=Adam(lr=self.critic_lr), loss='mean_squared_error',
                             metrics=['accuracy'])
 
     def _build_actor(self):
         state = Input(shape=(self.n_features,), name="state")
         advantage = Input(shape=(1,), name="Advantage")
         old_prediction = Input(shape=(self.n_actions,), name="Old_Prediction")
-        x = Dense(16, activation='relu', kernel_regularizer=l2(self.l2))(state)
+        x = Dense(32, activation='relu', kernel_regularizer=l2(self.l2))(state)
         x = Dense(16, activation='relu', kernel_regularizer=l2(self.l2))(x)
         policy = Dense(self.n_actions, activation='softmax', kernel_regularizer=l2(self.l2))(x)
-        self.actor = Model(inputs=[state, advantage, old_prediction], outputs=policy)
-        self.actor.compile(optimizer=Adam(learning_rate=self.actor_lr), loss=self.proximal_policy_optimization_loss(
-            advantage=advantage, old_prediction=old_prediction),
-                           metrics=['accuracy'])
-        self.actor_old = self.build_network_from_copy(self.actor)
-
-    def build_network_from_copy(self, actor_network):
-        network_structure = actor_network.to_json()
-        network_weights = actor_network.get_weights()
-        network = model_from_json(network_structure)
-        network.set_weights(network_weights)
-        network.compile(optimizer=Adam(lr=self.actor_lr), loss="mse")  # loss随便写，只用于预测不更新参数
-        return network
+        model = Model(inputs=[state, advantage, old_prediction], outputs=policy)
+        model.compile(optimizer=Adam(lr=self.actor_lr), loss=self.proximal_policy_optimization_loss(
+            advantage=advantage, old_prediction=old_prediction))
+        return model
 
     def proximal_policy_optimization_loss(self, advantage, old_prediction):
         def loss(y_true, y_pred):
@@ -64,7 +55,7 @@ class PPO:
             r = prob / (old_prob + 1e-10)
             return -K.mean(K.minimum(r * advantage, K.clip(r, min_value=1 - self.loss_clipping,
                                                            max_value=1 + self.loss_clipping) * advantage))
-            # + entropy_loss * (prob * K.log(prob + 1e-10)))
+                           # + 0.2 * (prob * K.log(prob + 1e-10)))
 
         return loss
 
@@ -72,12 +63,11 @@ class PPO:
         observation = np.array(observation)
         observation = observation[np.newaxis, :]
         action_probs = self.actor.predict([observation, self.dummy_advantage, self.dummy_old_prediction])
-        print('action_probs', action_probs)
+        # print('action_probs', action_probs)
         if is_train_mode:
-            action = np.random.choice(range(action_probs.shape[1]), p=np.squeeze(action_probs))  # 加入了随机性
+            action = int(np.random.choice(range(action_probs.shape[1]), p=np.squeeze(action_probs)))  # 加入了随机性
         else:
-            action = np.squeeze(np.argmax(action_probs, axis=1))
-        print('action', action)
+            action = int(np.squeeze(np.argmax(action_probs, axis=1)))
         return action
 
     def store_transition(self, s, a, r, s_, d):
@@ -94,15 +84,26 @@ class PPO:
         self.cal_v_by_traceback()
         b_s, b_a, b_vt = np.array(self.states), np.array(self.actions), np.array(self.v_by_trace)
         b_v = self.get_v(b_s)
+
+        # print('b_s:{}'.format(self.states))
+        # print('b_a:{}'.format(self.actions))
+        # print('b_r:{}'.format(self.rewards))
+        # print('b_d:{}'.format(self.dones))
+        # print('b_vt:{}'.format(self.v_by_trace))
+        # print('b_v:{}'.format(b_v))
+
         b_adv = b_vt - b_v
         b_old_prediction = self.get_old_prediction(b_s)
-        b_a_onehot = np.zeros(b_a.shape[0], self.n_actions)
+        b_a_onehot = np.zeros((b_a.shape[0], self.n_actions))
         b_a_onehot[:, b_a.flatten()] = 1
 
-        history = self.actor.fit(x=[b_s, b_adv, b_old_prediction], y=b_a_onehot, epochs=2, verbose=0)
+        # print('b_adv:{}'.format(b_adv))
+        # print('b_old_prediction:{}'.format(b_old_prediction))
+        history = self.actor.fit(x=[b_s, b_adv, b_old_prediction], y=b_a_onehot, epochs=5, verbose=0)
+        # print('actor_loss_mean:{}'.format(history.history['loss']))
         actor_loss_mean = np.mean(history.history['loss'])
 
-        self.critic.fit(x=b_s, y=b_vt, epochs=2, verbose=0) # critic目标就是让td-error尽可能小
+        self.critic.fit(x=b_s, y=b_vt, epochs=5, verbose=0)  # critic目标就是让td-error尽可能小
 
         self.states, self.actions, self.rewards, self.states_, self.dones, self.v_by_trace = [], [], [], [], [], []
         self.update_target_network()
@@ -110,11 +111,12 @@ class PPO:
 
     def update_target_network(self):
         self.actor_old.set_weights(self.target_update_alpha * np.array(self.actor.get_weights())
-                                           + (1 - self.target_update_alpha) * np.array(self.actor_old.get_weights()))
+                                   + (1 - self.target_update_alpha) * np.array(self.actor_old.get_weights()))
 
     def get_old_prediction(self, s):
         s = np.reshape(s, (-1, self.n_features))
-        v = np.squeeze(self.actor_old.predict(s))
+        v = np.squeeze(self.actor_old.predict(
+            [s, np.tile(self.dummy_advantage, (s.shape[0], 1)), np.tile(self.dummy_old_prediction, (s.shape[0], 1))]))
         return v
 
     def get_v(self, s):
@@ -127,7 +129,7 @@ class PPO:
         截断后或episode结束后，通过回溯计算V(s)=r+g*V(s_)
         :return:
         '''
-        self.v_by_traceback = np.zeros_like(self.rewards)
+        # self.v_by_traceback = np.zeros_like(self.rewards)
         if self.dones[-1]:
             v = 0
         else:
@@ -136,12 +138,5 @@ class PPO:
 
         for t in reversed(range(0, len(self.rewards))):
             v = v * self.gamma + self.rewards[t]
-            self.v_by_traceback[t] = v
-
-        # self.rewards = []
-
-        # plt.figure()
-        # plt.plot(discount_rewards)
-        # plt.xlabel('episode steps')
-        # plt.ylabel('normalized reward')
-        # plt.show()
+            self.v_by_trace.append(v)
+        self.v_by_trace.reverse()

@@ -49,9 +49,12 @@ def train(episodes):
                 action_cnt[action] = action_cnt[action] + 1
             observation_, reward, done, info = env.step(action)
 
-            # 车开得越高 reward 越大
-            position, velocity = observation_
-            reward = abs(position - (-0.5))
+            # x 是车的水平位移, 所以 r1 是车越偏离中心, 分越少
+            # theta 是棒子离垂直的角度, 角度越大, 越不垂直. 所以 r2 是棒越垂直, 分越高
+            x, x_dot, theta, theta_dot = observation_
+            r1 = (env.x_threshold - abs(x)) / env.x_threshold - 0.8
+            r2 = (env.theta_threshold_radians - abs(theta)) / env.theta_threshold_radians - 0.5
+            reward = r1 + r2  # 总 reward 是 r1 和 r2 的结合, 既考虑位置, 也考虑角度, 这样学习更有效率
 
             reward_sum += reward
             rl.store_transition(observation, action, reward)
@@ -145,7 +148,7 @@ def model_reproducible():
 
 if __name__ == '__main__':
     # 玩500回合，边玩边产生样本，边训练
-    env = gym.make('MountainCar-v0')
+    env = gym.make('CartPole-v0')
     env.seed(1)
     model_reproducible()
 
@@ -161,8 +164,6 @@ if __name__ == '__main__':
     rl = PolicyGradient(
         n_actions=action_size,
         n_features=state_size,
-        learning_rate=0.015,
-        reward_decay=0.995,
     )
 
     EPISODES = 2000

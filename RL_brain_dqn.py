@@ -106,7 +106,7 @@ class DQN:
                     target += self.gamma * q[i, act_next[i]]
                 y[i][action] = target
 
-        history = self.model_eval.fit(x=states, y=y, verbose=0, batch_size=32, epochs=10)
+        history = self.model_eval.fit(x=states, y=y, verbose=0, batch_size=64, epochs=5)
 
         # # 从memory里选取一部分进行样本
         # batch_memory = self.memory[np.random.randint(0, min(self.memory_counter, self.memory_size), self.batch_size), :]
@@ -139,9 +139,9 @@ class DQN:
 
         if not is_train_mode or np.random.uniform() >= self.epsilon:
             action_vals = self.model_eval.predict(observation)
-            action = np.squeeze(np.argmax(action_vals, axis=1))
+            action = int(np.squeeze(np.argmax(action_vals, axis=1)))
         else:
-            action = np.random.randint(0, self.n_actions)
+            action = int(np.random.randint(0, self.n_actions))
         return action
 
     # def plot_cost(self):

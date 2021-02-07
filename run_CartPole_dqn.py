@@ -4,7 +4,7 @@ import gym
 import os
 import matplotlib.pyplot as plt
 import numpy as np
-from RL_brain_pg import PolicyGradient
+from RL_brain_dqn import DQN
 import tensorflow as tf
 from tensorflow.python.keras import backend as K
 
@@ -33,12 +33,13 @@ def plot_reward_and_cost(i_episode, history):
 
 
 def train(episodes):
-    batch = 1  # 一个batch包含几次episode，每个batch更新一次梯度
+    total_steps = 0  # 记录步数
     history = {'episode': [], 'Episode_reward': [], 'Loss': [], 'Val_reward': []}
 
     for i_episode in range(episodes):
         observation = env.reset()
         reward_sum = 0
+        loss = np.infty
         action_cnt = {}
         while True:
             env.render()
@@ -49,32 +50,40 @@ def train(episodes):
                 action_cnt[action] = action_cnt[action] + 1
             observation_, reward, done, info = env.step(action)
 
-            # 车开得越高 reward 越大
-            position, velocity = observation_
-            reward = abs(position - (-0.5))
+            # x 是车的水平位移, 所以 r1 是车越偏离中心, 分越少
+            # theta 是棒子离垂直的角度, 角度越大, 越不垂直. 所以 r2 是棒越垂直, 分越高
+            x, x_dot, theta, theta_dot = observation_
+            r1 = (env.x_threshold - abs(x)) / env.x_threshold - 0.8
+            r2 = (env.theta_threshold_radians - abs(theta)) / env.theta_threshold_radians - 0.5
+            reward = r1 + r2  # 总 reward 是 r1 和 r2 的结合, 既考虑位置, 也考虑角度, 这样学习更有效率
 
             reward_sum += reward
-            rl.store_transition(observation, action, reward)
+            rl.store_transition(observation, action, reward, observation_, done)
+
+            if total_steps > 1000:
+                loss = rl.learn()
 
             if done:
-                rl.discount_rewards.extend(rl.discount_and_norm_ep_rewards())
                 break
+
             observation = observation_
+            total_steps += 1
 
-        if i_episode != 0 and i_episode % batch == 0:
-            loss = rl.learn()
+        history['episode'].append(i_episode)
+        history['Episode_reward'].append(reward_sum)
+        history['Loss'].append(loss)
+        print(
+            'Episode: {}/{} | Action cnt: {} | Episode reward: {} | loss: {:.6f} | e:{:.2f}'.format(i_episode, episodes,
+                                                                                                    action_cnt,
+                                                                                                    reward_sum,
+                                                                                                    loss, rl.epsilon))
 
-            history['episode'].append(i_episode)
-            history['Episode_reward'].append(reward_sum)
-            history['Loss'].append(loss)
-            print(
-                'Episode: {}/{} | Action cnt: {} | Episode reward: {} | loss: {:.6f}'.format(i_episode, episodes,
-                                                                                             action_cnt, reward_sum,
-                                                                                             loss))
         if i_episode % 5 == 0:
             validate(history)
             plot_reward_and_cost(i_episode, history)
     return history
+    # ENV = ENV.unwrapped
+    # RL.plot_cost()
 
 
 def validate(history):
@@ -87,6 +96,7 @@ def validate(history):
     action_cnt = {}
 
     while i_episode < total_episodes:
+        # env.render()
         action = rl.choose_action(observation, False)
         if action not in action_cnt:
             action_cnt[action] = 1
@@ -98,6 +108,7 @@ def validate(history):
         if done:
             i_episode += 1
             observation = env.reset()
+    # env.close()
     print('VAL—>action_cnt:{}, reward_sum:{}, turns_count:{}'.format(action_cnt, reward_sum, turns_count))
     history['Val_reward'].append(reward_sum)
     print('-----------Validate End-----------')
@@ -145,7 +156,8 @@ def model_reproducible():
 
 if __name__ == '__main__':
     # 玩500回合，边玩边产生样本，边训练
-    env = gym.make('MountainCar-v0')
+    tf.disable_eager_execution()
+    env = gym.make('CartPole-v0')
     env.seed(1)
     model_reproducible()
 
@@ -153,20 +165,13 @@ if __name__ == '__main__':
     print(env.observation_space)  # 显示可用 state 的 observation
     print(env.observation_space.high)  # 显示 observation 最高值
     print(env.observation_space.low)  # 显示 observation 最低值
-    # DISPLAY_REWARD_THRESHOLD = -2000
-    # RENDER = False  # rendering wastes time
 
     state_size = env.observation_space.shape[0]
     action_size = env.action_space.n
-    rl = PolicyGradient(
-        n_actions=action_size,
-        n_features=state_size,
-        learning_rate=0.015,
-        reward_decay=0.995,
-    )
+    rl = DQN(action_size, state_size)
 
-    EPISODES = 2000
+    EPISODES = 500
     his = train(EPISODES)
-    # play()
+    play()
     plt.ioff()
     plt.show()

@@ -11,7 +11,7 @@ from tensorflow.python.keras import backend as K
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
 
-def plot_reward_and_cost(i_episode, size, history):
+def plot_reward_and_cost(i_episode, history):
     if i_episode <= 1:
         plt.figure()
         plt.ion()
@@ -20,26 +20,34 @@ def plot_reward_and_cost(i_episode, size, history):
     #     # plt.show()
     #     return
     plt.clf()
-    plt.subplot(2, 1, 1)
+    plt.subplot(3, 1, 1)
     plt.plot(np.arange(len(history['Episode_reward'])), history['Episode_reward'])
     plt.title('each_episode_reward')
-    plt.subplot(2, 1, 2)
-    plt.plot(np.arange(len(history['Loss'])), history['Loss'])  # 1个episode训练step次，每次训练遍历样本epoch次
+    plt.subplot(3, 1, 2)
+    plt.plot(np.arange(len(history['Loss'])), history['Loss'])
     plt.title('each_episode_cost')
+    plt.subplot(3, 1, 3)
+    plt.plot(np.arange(len(history['Val_reward'])) * 5, history['Val_reward'])
+    plt.title('each_val_reward')
     plt.pause(0.00000001)
 
 
 def train(episodes):
     total_steps = 0  # 记录步数
-    history = {'episode': [], 'Episode_reward': [], 'Loss': []}
+    history = {'episode': [], 'Episode_reward': [], 'Loss': [], 'Val_reward': []}
 
     for i_episode in range(episodes):
         observation = env.reset()
         reward_sum = 0
         loss = np.infty
+        action_cnt = {}
         while True:
             env.render()
             action = rl.choose_action(observation)
+            if action not in action_cnt:
+                action_cnt[action] = 1
+            else:
+                action_cnt[action] = action_cnt[action] + 1
             observation_, reward, done, info = env.step(action)
 
             # 车开得越高 reward 越大
@@ -58,17 +66,49 @@ def train(episodes):
             observation = observation_
             total_steps += 1
 
-        if i_episode % 3 == 0:
-            history['episode'].append(i_episode)
-            history['Episode_reward'].append(reward_sum)
-            history['Loss'].append(loss)
-            print(
-                'Episode: {}/{} | Episode reward: {} | loss: {:.6f} | e:{:.2f}'.format(i_episode, episodes, reward_sum,
-                                                                                       loss, rl.epsilon))
-            plot_reward_and_cost(i_episode, episodes, history)
+        history['episode'].append(i_episode)
+        history['Episode_reward'].append(reward_sum)
+        history['Loss'].append(loss)
+        print(
+            'Episode: {}/{} | Action cnt: {} | Episode reward: {} | loss: {:.6f} | e:{:.2f}'.format(i_episode, episodes,
+                                                                                                    action_cnt,
+                                                                                                    reward_sum,
+                                                                                                    loss, rl.epsilon))
+
+        if i_episode % 5 == 0:
+            validate(history)
+            plot_reward_and_cost(i_episode, history)
     return history
     # ENV = ENV.unwrapped
     # RL.plot_cost()
+
+
+def validate(history):
+    print('-----------Validate Start-----------')
+    observation = env.reset()
+    i_episode = 0
+    total_episodes = 6
+    turns_count = 0
+    reward_sum = 0
+    action_cnt = {}
+
+    while i_episode < total_episodes:
+        # env.render()
+        action = rl.choose_action(observation, False)
+        if action not in action_cnt:
+            action_cnt[action] = 1
+        else:
+            action_cnt[action] = action_cnt[action] + 1
+        observation, reward, done, info = env.step(action)
+        turns_count += 1
+        reward_sum += reward
+        if done:
+            i_episode += 1
+            observation = env.reset()
+    # env.close()
+    print('VAL—>action_cnt:{}, reward_sum:{}, turns_count:{}'.format(action_cnt, reward_sum, turns_count))
+    history['Val_reward'].append(reward_sum)
+    print('-----------Validate End-----------')
 
 
 def play():
@@ -97,8 +137,9 @@ def play():
 
     env.close()
 
+
 def model_reproducible():
-    #模型可复现
+    # 模型可复现
     os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
     os.environ['PYTHONHASHSEED'] = '0'
     np.random.seed(1)
@@ -109,10 +150,12 @@ def model_reproducible():
     sess = tf.Session(graph=tf.get_default_graph(), config=session_conf)
     K.set_session(sess)
 
+
 if __name__ == '__main__':
     # 玩500回合，边玩边产生样本，边训练
     tf.disable_eager_execution()
     env = gym.make('MountainCar-v0')
+    env._max_episode_steps = 1000
     env.seed(1)
     model_reproducible()
 

@@ -4,9 +4,10 @@ import gym
 import os
 import matplotlib.pyplot as plt
 import numpy as np
-from RL_brain_pg import PolicyGradient
 import tensorflow as tf
 from tensorflow.python.keras import backend as K
+
+from RL_brain_ppo import PPO
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
@@ -27,50 +28,49 @@ def plot_reward_and_cost(i_episode, history):
     plt.plot(np.arange(len(history['Loss'])), history['Loss'])
     plt.title('each_episode_cost')
     plt.subplot(3, 1, 3)
-    plt.plot(np.arange(len(history['Val_reward'])) * 5, history['Val_reward'])
+    plt.plot(np.arange(len(history['Val_reward']))*5, history['Val_reward'])
     plt.title('each_val_reward')
     plt.pause(0.00000001)
 
 
-def train(episodes):
-    batch = 1  # 一个batch包含几次episode，每个batch更新一次梯度
+def train():
     history = {'episode': [], 'Episode_reward': [], 'Loss': [], 'Val_reward': []}
 
-    for i_episode in range(episodes):
+    for i_episode in range(EP_MAX):
         observation = env.reset()
-        reward_sum = 0
+        ep_reward_sum = 0
+        loss = np.infty
         action_cnt = {}
-        while True:
+        for t in range(EP_LEN):
             env.render()
-            action = rl.choose_action(observation)
+            action = rl.choose_action(observation, True)
             if action not in action_cnt:
                 action_cnt[action] = 1
             else:
                 action_cnt[action] = action_cnt[action] + 1
             observation_, reward, done, info = env.step(action)
 
-            # 车开得越高 reward 越大
-            position, velocity = observation_
-            reward = abs(position - (-0.5))
+            # x 是车的水平位移, 所以 r1 是车越偏离中心, 分越少
+            # theta 是棒子离垂直的角度, 角度越大, 越不垂直. 所以 r2 是棒越垂直, 分越高
+            x, x_dot, theta, theta_dot = observation_
+            r1 = (env.x_threshold - abs(x)) / env.x_threshold - 0.8
+            r2 = (env.theta_threshold_radians - abs(theta)) / env.theta_threshold_radians - 0.5
+            reward = (r1 + r2)/1000  # 总 reward 是 r1 和 r2 的结合, 既考虑位置, 也考虑角度, 这样学习更有效率
 
-            reward_sum += reward
-            rl.store_transition(observation, action, reward)
+            ep_reward_sum += reward
+            rl.store_transition(observation, action, reward, observation_, done)
 
-            if done:
-                rl.discount_rewards.extend(rl.discount_and_norm_ep_rewards())
-                break
+            if (t + 1) % BATCH == 0 or t == EP_LEN - 1:
+                loss = rl.learn()
             observation = observation_
 
-        if i_episode != 0 and i_episode % batch == 0:
-            loss = rl.learn()
+        history['episode'].append(i_episode)
+        history['Episode_reward'].append(ep_reward_sum)
+        history['Loss'].append(loss)
+        print(
+            'Episode: {}/{} | Action cnt: {} | Episode reward: {} | loss: {:.6f}'.format(i_episode, EP_MAX, action_cnt,
+                                                                                         ep_reward_sum, loss))
 
-            history['episode'].append(i_episode)
-            history['Episode_reward'].append(reward_sum)
-            history['Loss'].append(loss)
-            print(
-                'Episode: {}/{} | Action cnt: {} | Episode reward: {} | loss: {:.6f}'.format(i_episode, episodes,
-                                                                                             action_cnt, reward_sum,
-                                                                                             loss))
         if i_episode % 5 == 0:
             validate(history)
             plot_reward_and_cost(i_episode, history)
@@ -87,6 +87,7 @@ def validate(history):
     action_cnt = {}
 
     while i_episode < total_episodes:
+        # env.render()
         action = rl.choose_action(observation, False)
         if action not in action_cnt:
             action_cnt[action] = 1
@@ -98,6 +99,7 @@ def validate(history):
         if done:
             i_episode += 1
             observation = env.reset()
+    # env.close()
     print('VAL—>action_cnt:{}, reward_sum:{}, turns_count:{}'.format(action_cnt, reward_sum, turns_count))
     history['Val_reward'].append(reward_sum)
     print('-----------Validate End-----------')
@@ -145,7 +147,8 @@ def model_reproducible():
 
 if __name__ == '__main__':
     # 玩500回合，边玩边产生样本，边训练
-    env = gym.make('MountainCar-v0')
+    env = gym.make('CartPole-v0')
+    env._max_episode_steps = 1000
     env.seed(1)
     model_reproducible()
 
@@ -158,15 +161,15 @@ if __name__ == '__main__':
 
     state_size = env.observation_space.shape[0]
     action_size = env.action_space.n
-    rl = PolicyGradient(
+    rl = PPO(
         n_actions=action_size,
         n_features=state_size,
-        learning_rate=0.015,
-        reward_decay=0.995,
     )
 
-    EPISODES = 2000
-    his = train(EPISODES)
+    EP_MAX = 2000
+    EP_LEN = 200
+    BATCH = 32
+    his = train()
     # play()
     plt.ioff()
     plt.show()
