@@ -96,6 +96,7 @@ class PPO:
         # print('b_v:{}'.format(b_v))
 
         b_adv = b_vt - b_v  # 可以对adv做标准化
+        # b_adv = (b_adv - np.mean(b_adv)) / (np.std(b_adv) + 1e-10)
         b_old_prediction = self.get_old_prediction(b_s)
         b_a_onehot = np.zeros((b_a.shape[0], self.n_actions))
         b_a_onehot[:, b_a.flatten()] = 1
