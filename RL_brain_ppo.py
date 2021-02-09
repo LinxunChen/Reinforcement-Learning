@@ -1,3 +1,5 @@
+# 参考：https://github.com/liziniu/RL-PPO-Keras/blob/9fcfa63843c7d3a4d0b67c31de3405ccf5ce4212/ppo.py#L65
+
 import random
 import numpy as np
 import tensorflow as tf
@@ -8,9 +10,10 @@ from tensorflow.python.keras.optimizer_v2.adam import Adam
 from tensorflow.python.keras.regularizers import l2
 import keras.backend as K
 
+
 class PPO:
-    def __init__(self, n_actions, n_features, actor_lr=0.001, critic_lr=0.01, reward_decay=0.9, l2=0.001,
-                 loss_clipping=0.1, target_update_alpha=0.9):
+    def __init__(self, n_actions, n_features, actor_lr=0.0001, critic_lr=0.0001, reward_decay=0.9, l2=0.001,
+                 loss_clipping=0.2, target_update_alpha=0.9):
         self.n_actions = n_actions
         self.n_features = n_features
         self.actor_lr = actor_lr  # 学习率
@@ -55,7 +58,7 @@ class PPO:
             r = prob / (old_prob + 1e-10)
             return -K.mean(K.minimum(r * advantage, K.clip(r, min_value=1 - self.loss_clipping,
                                                            max_value=1 + self.loss_clipping) * advantage))
-                           # + 0.2 * (prob * K.log(prob + 1e-10)))
+            # + 0.2 * (prob * K.log(prob + 1e-10)))
 
         return loss
 
@@ -92,7 +95,7 @@ class PPO:
         # print('b_vt:{}'.format(self.v_by_trace))
         # print('b_v:{}'.format(b_v))
 
-        b_adv = b_vt - b_v
+        b_adv = b_vt - b_v  # 可以对adv做标准化
         b_old_prediction = self.get_old_prediction(b_s)
         b_a_onehot = np.zeros((b_a.shape[0], self.n_actions))
         b_a_onehot[:, b_a.flatten()] = 1
@@ -115,8 +118,8 @@ class PPO:
 
     def get_old_prediction(self, s):
         s = np.reshape(s, (-1, self.n_features))
-        v = np.squeeze(self.actor_old.predict(
-            [s, np.tile(self.dummy_advantage, (s.shape[0], 1)), np.tile(self.dummy_old_prediction, (s.shape[0], 1))]))
+        v = self.actor_old.predict(
+            [s, np.tile(self.dummy_advantage, (s.shape[0], 1)), np.tile(self.dummy_old_prediction, (s.shape[0], 1))])
         return v
 
     def get_v(self, s):

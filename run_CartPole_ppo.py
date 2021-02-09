@@ -55,14 +55,16 @@ def train():
             x, x_dot, theta, theta_dot = observation_
             r1 = (env.x_threshold - abs(x)) / env.x_threshold - 0.8
             r2 = (env.theta_threshold_radians - abs(theta)) / env.theta_threshold_radians - 0.5
-            reward = (r1 + r2)/1000  # 总 reward 是 r1 和 r2 的结合, 既考虑位置, 也考虑角度, 这样学习更有效率
+            reward = (r1 + r2)  # 总 reward 是 r1 和 r2 的结合, 既考虑位置, 也考虑角度, 这样学习更有效率
 
             ep_reward_sum += reward
             rl.store_transition(observation, action, reward, observation_, done)
 
-            if (t + 1) % BATCH == 0 or t == EP_LEN - 1:
+            if (t + 1) % BATCH == 0 or t == EP_LEN - 1 or done:
                 loss = rl.learn()
             observation = observation_
+            if done:
+                break
 
         history['episode'].append(i_episode)
         history['Episode_reward'].append(ep_reward_sum)
@@ -148,7 +150,6 @@ def model_reproducible():
 if __name__ == '__main__':
     # 玩500回合，边玩边产生样本，边训练
     env = gym.make('CartPole-v0')
-    env._max_episode_steps = 1000
     env.seed(1)
     model_reproducible()
 
@@ -168,7 +169,7 @@ if __name__ == '__main__':
 
     EP_MAX = 2000
     EP_LEN = 200
-    BATCH = 64
+    BATCH = 32
     his = train()
     # play()
     plt.ioff()

@@ -57,9 +57,11 @@ def train():
             ep_reward_sum += reward
             rl.store_transition(observation, action, reward, observation_, done)
 
-            if (t + 1) % BATCH == 0 or t == EP_LEN - 1:
+            if (t + 1) % BATCH == 0 or t == EP_LEN - 1 or done:
                 loss = rl.learn()
             observation = observation_
+            if done:
+                break
 
         history['episode'].append(i_episode)
         history['Episode_reward'].append(ep_reward_sum)
